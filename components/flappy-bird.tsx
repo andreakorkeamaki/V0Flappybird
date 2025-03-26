@@ -69,83 +69,45 @@ export default function FlappyBird() {
     const handleDocumentClick = (e: MouseEvent) => onClick(e)
     document.addEventListener("click", handleDocumentClick)
 
-    // MOBILE TOUCH HANDLING - Multiple approaches to ensure it works
-    
-    // 1. Document level touch handler
-    const handleDocumentTouch = (e: TouchEvent) => {
-      // Skip if touching UI elements
-      if ((e.target as HTMLElement).closest(".pointer-events-auto") || (e.target as HTMLElement).tagName === "INPUT") {
-        return
-      }
+    // Simple touch handler that won't throw exceptions
+    const handleTouch = (e: TouchEvent) => {
+      // Only handle touchstart events
+      if (e.type !== "touchstart") return
       
-      e.preventDefault()
-      e.stopPropagation()
-      
-      // Debug
-      console.log("Document touch event", e.type)
-      
-      // Flap with cooldown
-      const now = Date.now()
-      if (now - lastFlapTimeRef.current < flapCooldown) return
-      
-      lastFlapTimeRef.current = now
-      flap()
-    }
-    
-    // 2. Container level touch handler
-    const handleContainerTouch = (e: TouchEvent) => {
-      e.preventDefault()
-      e.stopPropagation()
-      
-      // Debug
-      console.log("Container touch event", e.type)
-      
-      // Flap with cooldown
-      const now = Date.now()
-      if (now - lastFlapTimeRef.current < flapCooldown) return
-      
-      lastFlapTimeRef.current = now
-      flap()
-    }
-    
-    // Add all touch event listeners to document
-    document.addEventListener("touchstart", handleDocumentTouch, { passive: false })
-    
-    // Add all touch event listeners to container
-    containerRef.current.addEventListener("touchstart", handleContainerTouch, { passive: false })
-    containerRef.current.addEventListener("touchend", handleContainerTouch, { passive: false })
-    
-    // 3. Canvas touch handler - add after canvas is created
-    const setupCanvasTouchHandlers = () => {
-      if (canvasRef.current) {
-        const handleCanvasTouch = (e: TouchEvent) => {
-          e.preventDefault()
-          e.stopPropagation()
-          
-          // Debug
-          console.log("Canvas touch event", e.type)
-          
-          // Flap with cooldown
-          const now = Date.now()
-          if (now - lastFlapTimeRef.current < flapCooldown) return
-          
-          lastFlapTimeRef.current = now
-          flap()
+      try {
+        // Skip if touching UI elements
+        const target = e.target as HTMLElement
+        if (target.closest(".pointer-events-auto") || target.tagName === "INPUT") {
+          return
         }
         
-        canvasRef.current.addEventListener("touchstart", handleCanvasTouch, { passive: false })
-        canvasRef.current.addEventListener("touchend", handleCanvasTouch, { passive: false })
-        console.log("Canvas touch handlers added")
+        // Prevent default only if we're sure it's safe
+        try {
+          e.preventDefault()
+        } catch (err) {
+          console.log("Could not prevent default", err)
+        }
+        
+        // Flap with cooldown
+        const now = Date.now()
+        if (now - lastFlapTimeRef.current < flapCooldown) return
+        
+        lastFlapTimeRef.current = now
+        flap()
+        
+        console.log("Touch handled successfully")
+      } catch (err) {
+        console.error("Error handling touch:", err)
       }
     }
     
-    // Try to add canvas handlers immediately
-    setupCanvasTouchHandlers()
-    
-    // Also try after a delay to ensure canvas is ready
-    setTimeout(setupCanvasTouchHandlers, 500)
-    setTimeout(setupCanvasTouchHandlers, 1000)
-    setTimeout(setupCanvasTouchHandlers, 2000)
+    // Add touch event listener to document with error handling
+    try {
+      document.addEventListener("touchstart", handleTouch, { passive: false })
+      console.log("Touch handler added to document")
+    } catch (err) {
+      console.error("Could not add touch handler to document:", err)
+    }
 
     // Cleanup on unmount
     return () => {
@@ -165,15 +127,11 @@ export default function FlappyBird() {
       window.removeEventListener("keydown", onKeyDown)
       document.removeEventListener("click", handleDocumentClick)
       
-      // Remove all touch handlers
-      document.removeEventListener("touchstart", handleDocumentTouch)
-      
-      containerRef.current?.removeEventListener("touchstart", handleContainerTouch)
-      containerRef.current?.removeEventListener("touchend", handleContainerTouch)
-      
-      if (canvasRef.current) {
-        canvasRef.current.removeEventListener("touchstart", handleCanvasTouch)
-        canvasRef.current.removeEventListener("touchend", handleCanvasTouch)
+      // Remove touch handler with error handling
+      try {
+        document.removeEventListener("touchstart", handleTouch)
+      } catch (err) {
+        console.error("Could not remove touch handler:", err)
       }
 
       // Dispose of Three.js objects
@@ -696,7 +654,6 @@ export default function FlappyBird() {
       sceneRef.current.remove(powerUpsRef.current[i].mesh)
     }
     powerUpsRef.current = []
-
     // Deactivate power-up if active
     if (powerUpActiveRef.current) {
       deactivatePowerUp()
@@ -775,20 +732,30 @@ export default function FlappyBird() {
     flap()
   }
 
-  // Direct touch handler for the JSX element
+  // Safe touch handler for React
   const handleTouchEvent = (e: React.TouchEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    
-    // Debug
-    console.log("JSX touch event", e.type)
-    
-    // Flap with cooldown
-    const now = Date.now()
-    if (now - lastFlapTimeRef.current < flapCooldown) return
-    
-    lastFlapTimeRef.current = now
-    flap()
+    try {
+      // Only handle touchstart events
+      if (e.type !== "touchStart") return
+      
+      // Prevent default only if we're sure it's safe
+      try {
+        e.preventDefault()
+      } catch (err) {
+        console.log("Could not prevent default in React handler", err)
+      }
+      
+      // Flap with cooldown
+      const now = Date.now()
+      if (now - lastFlapTimeRef.current < flapCooldown) return
+      
+      lastFlapTimeRef.current = now
+      flap()
+      
+      console.log("React touch handled successfully")
+    } catch (err) {
+      console.error("Error in React touch handler:", err)
+    }
   }
 
   // Return to main menu
@@ -847,18 +814,11 @@ export default function FlappyBird() {
     <div 
       className="relative w-full h-full game-container"
       onTouchStart={handleTouchEvent}
-      onTouchEnd={handleTouchEvent}
     >
       <div 
         ref={containerRef} 
         className="w-full h-full touch-action-none" 
-        style={{ 
-          touchAction: "none", 
-          WebkitTouchCallout: "none",
-          userSelect: "none",
-          WebkitUserSelect: "none",
-          WebkitTapHighlightColor: "transparent"
-        }}
+        style={{ touchAction: "none" }}
       />
       <GameUI
         score={score}
