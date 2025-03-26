@@ -69,48 +69,83 @@ export default function FlappyBird() {
     const handleDocumentClick = (e: MouseEvent) => onClick(e)
     document.addEventListener("click", handleDocumentClick)
 
-    // Handle touch events for mobile - attach to container and canvas
-    const handleTouchStart = (e: TouchEvent) => {
-      // Don't flap if touching UI elements or input fields
+    // MOBILE TOUCH HANDLING - Multiple approaches to ensure it works
+    
+    // 1. Document level touch handler
+    const handleDocumentTouch = (e: TouchEvent) => {
+      // Skip if touching UI elements
       if ((e.target as HTMLElement).closest(".pointer-events-auto") || (e.target as HTMLElement).tagName === "INPUT") {
         return
       }
-
-      // Prevent default browser behavior to avoid scrolling/zooming
+      
       e.preventDefault()
       e.stopPropagation()
-
-      // Prevent double flaps by implementing a cooldown
+      
+      // Debug
+      console.log("Document touch event", e.type)
+      
+      // Flap with cooldown
       const now = Date.now()
-      if (now - lastFlapTimeRef.current < flapCooldown) {
-        return
-      }
-
+      if (now - lastFlapTimeRef.current < flapCooldown) return
+      
       lastFlapTimeRef.current = now
       flap()
-
-      // Debug
-      console.log("Touch flap triggered", e.target)
     }
-
-    // Add touch event listeners to both container and canvas when available
-    containerRef.current.addEventListener("touchstart", handleTouchStart, { passive: false })
     
-    // Also add touch listener to the canvas element once it's created
-    const addCanvasTouchListener = () => {
+    // 2. Container level touch handler
+    const handleContainerTouch = (e: TouchEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      
+      // Debug
+      console.log("Container touch event", e.type)
+      
+      // Flap with cooldown
+      const now = Date.now()
+      if (now - lastFlapTimeRef.current < flapCooldown) return
+      
+      lastFlapTimeRef.current = now
+      flap()
+    }
+    
+    // Add all touch event listeners to document
+    document.addEventListener("touchstart", handleDocumentTouch, { passive: false })
+    
+    // Add all touch event listeners to container
+    containerRef.current.addEventListener("touchstart", handleContainerTouch, { passive: false })
+    containerRef.current.addEventListener("touchend", handleContainerTouch, { passive: false })
+    
+    // 3. Canvas touch handler - add after canvas is created
+    const setupCanvasTouchHandlers = () => {
       if (canvasRef.current) {
-        canvasRef.current.addEventListener("touchstart", handleTouchStart, { passive: false })
-        console.log("Canvas touch listener added")
+        const handleCanvasTouch = (e: TouchEvent) => {
+          e.preventDefault()
+          e.stopPropagation()
+          
+          // Debug
+          console.log("Canvas touch event", e.type)
+          
+          // Flap with cooldown
+          const now = Date.now()
+          if (now - lastFlapTimeRef.current < flapCooldown) return
+          
+          lastFlapTimeRef.current = now
+          flap()
+        }
+        
+        canvasRef.current.addEventListener("touchstart", handleCanvasTouch, { passive: false })
+        canvasRef.current.addEventListener("touchend", handleCanvasTouch, { passive: false })
+        console.log("Canvas touch handlers added")
       }
     }
     
-    // Try to add the canvas listener immediately if possible
-    if (canvasRef.current) {
-      addCanvasTouchListener()
-    }
+    // Try to add canvas handlers immediately
+    setupCanvasTouchHandlers()
     
-    // Also try again after a short delay to ensure the canvas is ready
-    setTimeout(addCanvasTouchListener, 1000)
+    // Also try after a delay to ensure canvas is ready
+    setTimeout(setupCanvasTouchHandlers, 500)
+    setTimeout(setupCanvasTouchHandlers, 1000)
+    setTimeout(setupCanvasTouchHandlers, 2000)
 
     // Cleanup on unmount
     return () => {
@@ -129,10 +164,17 @@ export default function FlappyBird() {
       window.removeEventListener("resize", onWindowResize)
       window.removeEventListener("keydown", onKeyDown)
       document.removeEventListener("click", handleDocumentClick)
-
-      // Remove touch listeners
-      containerRef.current?.removeEventListener("touchstart", handleTouchStart)
-      canvasRef.current?.removeEventListener("touchstart", handleTouchStart)
+      
+      // Remove all touch handlers
+      document.removeEventListener("touchstart", handleDocumentTouch)
+      
+      containerRef.current?.removeEventListener("touchstart", handleContainerTouch)
+      containerRef.current?.removeEventListener("touchend", handleContainerTouch)
+      
+      if (canvasRef.current) {
+        canvasRef.current.removeEventListener("touchstart", handleCanvasTouch)
+        canvasRef.current.removeEventListener("touchend", handleCanvasTouch)
+      }
 
       // Dispose of Three.js objects
       if (sceneRef.current) {
@@ -733,6 +775,22 @@ export default function FlappyBird() {
     flap()
   }
 
+  // Direct touch handler for the JSX element
+  const handleTouchEvent = (e: React.TouchEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    
+    // Debug
+    console.log("JSX touch event", e.type)
+    
+    // Flap with cooldown
+    const now = Date.now()
+    if (now - lastFlapTimeRef.current < flapCooldown) return
+    
+    lastFlapTimeRef.current = now
+    flap()
+  }
+
   // Return to main menu
   const returnToMenu = () => {
     // Reset game state
@@ -786,11 +844,21 @@ export default function FlappyBird() {
   }
 
   return (
-    <div className="relative w-full h-full game-container">
+    <div 
+      className="relative w-full h-full game-container"
+      onTouchStart={handleTouchEvent}
+      onTouchEnd={handleTouchEvent}
+    >
       <div 
         ref={containerRef} 
         className="w-full h-full touch-action-none" 
-        style={{ touchAction: "none", WebkitTouchCallout: "none" }}
+        style={{ 
+          touchAction: "none", 
+          WebkitTouchCallout: "none",
+          userSelect: "none",
+          WebkitUserSelect: "none",
+          WebkitTapHighlightColor: "transparent"
+        }}
       />
       <GameUI
         score={score}
