@@ -69,15 +69,16 @@ export default function FlappyBird() {
     const handleDocumentClick = (e: MouseEvent) => onClick(e)
     document.addEventListener("click", handleDocumentClick)
 
-    // Handle touch events for mobile - attach to container
+    // Handle touch events for mobile - attach to container and canvas
     const handleTouchStart = (e: TouchEvent) => {
       // Don't flap if touching UI elements or input fields
       if ((e.target as HTMLElement).closest(".pointer-events-auto") || (e.target as HTMLElement).tagName === "INPUT") {
         return
       }
 
-      // Prevent default browser behavior
+      // Prevent default browser behavior to avoid scrolling/zooming
       e.preventDefault()
+      e.stopPropagation()
 
       // Prevent double flaps by implementing a cooldown
       const now = Date.now()
@@ -89,11 +90,27 @@ export default function FlappyBird() {
       flap()
 
       // Debug
-      console.log("Touch flap triggered")
+      console.log("Touch flap triggered", e.target)
     }
 
-    // Add touch event listener to the container div
+    // Add touch event listeners to both container and canvas when available
     containerRef.current.addEventListener("touchstart", handleTouchStart, { passive: false })
+    
+    // Also add touch listener to the canvas element once it's created
+    const addCanvasTouchListener = () => {
+      if (canvasRef.current) {
+        canvasRef.current.addEventListener("touchstart", handleTouchStart, { passive: false })
+        console.log("Canvas touch listener added")
+      }
+    }
+    
+    // Try to add the canvas listener immediately if possible
+    if (canvasRef.current) {
+      addCanvasTouchListener()
+    }
+    
+    // Also try again after a short delay to ensure the canvas is ready
+    setTimeout(addCanvasTouchListener, 1000)
 
     // Cleanup on unmount
     return () => {
@@ -113,8 +130,9 @@ export default function FlappyBird() {
       window.removeEventListener("keydown", onKeyDown)
       document.removeEventListener("click", handleDocumentClick)
 
-      // Remove touch listener
+      // Remove touch listeners
       containerRef.current?.removeEventListener("touchstart", handleTouchStart)
+      canvasRef.current?.removeEventListener("touchstart", handleTouchStart)
 
       // Dispose of Three.js objects
       if (sceneRef.current) {
@@ -769,7 +787,11 @@ export default function FlappyBird() {
 
   return (
     <div className="relative w-full h-full game-container">
-      <div ref={containerRef} className="w-full h-full touch-action-none" />
+      <div 
+        ref={containerRef} 
+        className="w-full h-full touch-action-none" 
+        style={{ touchAction: "none", WebkitTouchCallout: "none" }}
+      />
       <GameUI
         score={score}
         lives={lives}
@@ -788,4 +810,3 @@ export default function FlappyBird() {
     </div>
   )
 }
-
